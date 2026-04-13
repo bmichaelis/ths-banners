@@ -1,0 +1,9 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Generated banner outputs (not source files)
+*_test.pdf
+smoke_test.pdf

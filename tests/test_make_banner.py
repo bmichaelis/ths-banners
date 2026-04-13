@@ -13,7 +13,8 @@ def test_make_banner_places_logo_in_white_space():
     from make_banner import make_banner, WHITE_SPACE
 
     # Create a solid red test logo (200×100 px)
-    test_logo_path = "/tmp/test_logo_red.png"
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+        test_logo_path = tf.name
     Image.new("RGB", (200, 100), color=(255, 0, 0)).save(test_logo_path)
 
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
