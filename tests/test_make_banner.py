@@ -1,8 +1,11 @@
 import os
+import pathlib
 import tempfile
 
 import fitz
 from PIL import Image
+
+PROJECT_ROOT = pathlib.Path(__file__).parent.parent
 
 
 def test_make_banner_places_logo_in_white_space():
@@ -16,7 +19,7 @@ def test_make_banner_places_logo_in_white_space():
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
         out_path = f.name
     try:
-        make_banner(test_logo_path, out_path)
+        make_banner(test_logo_path, out_path, template_path=str(PROJECT_ROOT / "template.pdf"))
 
         # Render the output page at 25% scale to keep the test fast
         with fitz.open(out_path) as doc:
@@ -30,7 +33,7 @@ def test_make_banner_places_logo_in_white_space():
             ws_cx = int((WHITE_SPACE.x0 + WHITE_SPACE.x1) / 2 * scale)
             ws_cy = int((WHITE_SPACE.y0 + WHITE_SPACE.y1) / 2 * scale)
             r, g, b = img.getpixel((ws_cx, ws_cy))
-            assert r > 200 and b < 50, (
+            assert r > 200 and g < 50 and b < 50, (
                 f"Expected red pixel at white space center, got ({r},{g},{b})"
             )
     finally:

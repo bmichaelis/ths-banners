@@ -1,3 +1,4 @@
+import pathlib
 import sys
 
 import fitz  # PyMuPDF
@@ -6,10 +7,16 @@ from PIL import Image
 # White space bounds in template.pdf (measured from NFlooring.pdf geometry)
 WHITE_SPACE = fitz.Rect(0, 450, 5184, 2150)
 PADDING = 50
-TEMPLATE_PATH = "template.pdf"
+_HERE = pathlib.Path(__file__).parent
+TEMPLATE_PATH = str(_HERE / "template.pdf")
 
 
 def make_banner(logo_path: str, output_path: str, template_path: str = TEMPLATE_PATH) -> None:
+    if not pathlib.Path(template_path).exists():
+        raise FileNotFoundError(f"Template not found: {template_path}")
+    if not pathlib.Path(logo_path).exists():
+        raise FileNotFoundError(f"Logo not found: {logo_path}")
+
     doc = fitz.open(template_path)
     page = doc[0]
 
@@ -40,5 +47,9 @@ if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python3 make_banner.py <logo_image> <output_pdf>")
         sys.exit(1)
-    make_banner(sys.argv[1], sys.argv[2])
+    try:
+        make_banner(sys.argv[1], sys.argv[2])
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
     print(f"Saved {sys.argv[2]}")
