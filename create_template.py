@@ -2,8 +2,8 @@ import pathlib
 
 import fitz  # PyMuPDF
 
-# Bounding box of the existing logo (including drop shadow), measured from NFlooring.pdf
-LOGO_RECT = fitz.Rect(1280, 800, 3900, 1815)
+# Full white space between header and footer — redact everything in this area
+WHITE_SPACE_RECT = fitz.Rect(0, 450, 5184, 2150)
 
 
 def create_template(source_path: str, output_path: str) -> None:
@@ -11,7 +11,7 @@ def create_template(source_path: str, output_path: str) -> None:
         raise FileNotFoundError(f"Source PDF not found: {source_path}")
     doc = fitz.open(source_path)
     page = doc[0]
-    page.add_redact_annot(LOGO_RECT, fill=(1, 1, 1))  # white fill
+    page.add_redact_annot(WHITE_SPACE_RECT, fill=(1, 1, 1))  # white fill
     page.apply_redactions()
     doc.save(output_path)
     doc.close()
