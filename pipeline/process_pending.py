@@ -93,7 +93,10 @@ def process_file(
             },
             timeout=30,
         )
-        response.raise_for_status()
+        if not response.ok:
+            raise RuntimeError(
+                f"Worker responded {response.status_code}: {response.text[:500]}"
+            )
 
         client.delete_object(Bucket=bucket, Key=key)
 
