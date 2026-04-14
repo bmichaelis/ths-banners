@@ -64,6 +64,9 @@ describe("handleInboundEmail", () => {
     const [key, , opts] = mockR2.put.mock.calls[0];
     expect(key).toMatch(/^pending\/[0-9a-f-]+-acme-logo\.png$/);
     expect(opts.httpMetadata.contentType).toBe("image/png");
+    const [, content] = mockR2.put.mock.calls[0];
+    expect(content).toBeInstanceOf(ArrayBuffer);
+    expect((content as ArrayBuffer).byteLength).toBeGreaterThan(0);
   });
 
   it("ignores emails with no image attachments", async () => {
@@ -73,5 +76,63 @@ describe("handleInboundEmail", () => {
     await handleInboundEmail(makeMessage(RAW_NO_IMAGE), env);
 
     expect(mockR2.put).not.toHaveBeenCalled();
+  });
+
+  it("ignores non-image attachments (e.g. PDF)", async () => {
+    const rawWithPdf = [
+      "MIME-Version: 1.0",
+      "From: sponsor@example.com",
+      "To: twolfbanners@kindacoach.com",
+      "Subject: Wrong file",
+      'Content-Type: multipart/mixed; boundary="boundary"',
+      "",
+      "--boundary",
+      "Content-Type: application/pdf",
+      'Content-Disposition: attachment; filename="invoice.pdf"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      "JVBERi0xLjQ=",
+      "--boundary--",
+    ].join("\r\n");
+
+    const mockR2 = { put: vi.fn() };
+    const env = { R2: mockR2 } as unknown as Env;
+
+    await handleInboundEmail(makeMessage(rawWithPdf), env);
+
+    expect(mockR2.put).not.toHaveBeenCalled();
+  });
+
+  it("saves only image attachment when mixed with non-image", async () => {
+    const rawMixed = [
+      "MIME-Version: 1.0",
+      "From: sponsor@example.com",
+      "To: twolfbanners@kindacoach.com",
+      "Subject: Mixed",
+      'Content-Type: multipart/mixed; boundary="boundary"',
+      "",
+      "--boundary",
+      "Content-Type: image/png",
+      'Content-Disposition: attachment; filename="logo.png"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      "iVBORw0KGgo=",
+      "--boundary",
+      "Content-Type: application/pdf",
+      'Content-Disposition: attachment; filename="terms.pdf"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      "JVBERi0xLjQ=",
+      "--boundary--",
+    ].join("\r\n");
+
+    const mockR2 = { put: vi.fn().mockResolvedValue(undefined) };
+    const env = { R2: mockR2 } as unknown as Env;
+
+    await handleInboundEmail(makeMessage(rawMixed), env);
+
+    expect(mockR2.put).toHaveBeenCalledOnce();
+    const [key] = mockR2.put.mock.calls[0];
+    expect(key).toMatch(/^pending\/[0-9a-f-]+-logo\.png$/);
   });
 });

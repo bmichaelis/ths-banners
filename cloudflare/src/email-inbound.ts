@@ -1,7 +1,7 @@
 import PostalMime from "postal-mime";
 import type { Env } from "./types";
 
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/jpg"];
+const ALLOWED_TYPES = ["image/png", "image/jpeg"];
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase();
@@ -15,9 +15,10 @@ export async function handleInboundEmail(
   const rawData = await new Response(message.raw).arrayBuffer();
   const email = await parser.parse(rawData);
 
-  for (const attachment of email.attachments ?? []) {
+  for (const attachment of email.attachments) {
     const mimeType = attachment.mimeType?.toLowerCase() ?? "";
     if (!ALLOWED_TYPES.includes(mimeType)) continue;
+    if ((attachment.content as ArrayBuffer).byteLength === 0) continue;
 
     const safeFilename = sanitizeFilename(
       attachment.filename ?? `logo.${mimeType.split("/")[1]}`
