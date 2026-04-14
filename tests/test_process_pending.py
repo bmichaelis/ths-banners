@@ -12,7 +12,8 @@ def test_list_pending_files_returns_object_keys():
             {"Key": "pending/"},
             {"Key": "pending/550e8400-e29b-41d4-a716-446655440000-acme-logo.png"},
             {"Key": "pending/6ba7b810-9dad-11d1-80b4-00c04fd430c8-uccu.jpg"},
-        ]
+        ],
+        "IsTruncated": False,
     }
     result = list_pending_files(client, "twolf-banners")
     assert result == [

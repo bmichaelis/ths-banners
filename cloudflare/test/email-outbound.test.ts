@@ -64,7 +64,7 @@ describe("handleSendBanner", () => {
     });
     const res = await handleSendBanner(req, env);
     expect(res.status).toBe(200);
-    expect(env.SEND_EMAIL.send).toHaveBeenCalledOnce();
+    expect(env.SEND_EMAIL.send).toHaveBeenCalledTimes(2);
   });
 
   it("returns 400 for invalid JSON body", async () => {

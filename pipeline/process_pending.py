@@ -21,12 +21,18 @@ def get_r2_client():
 
 
 def list_pending_files(client, bucket: str) -> list:
-    response = client.list_objects_v2(Bucket=bucket, Prefix="pending/")
-    return [
-        obj["Key"]
-        for obj in response.get("Contents", [])
-        if obj["Key"] != "pending/"
-    ]
+    keys = []
+    kwargs: dict = {"Bucket": bucket, "Prefix": "pending/"}
+    while True:
+        response = client.list_objects_v2(**kwargs)
+        for obj in response.get("Contents", []):
+            if obj["Key"] != "pending/":
+                keys.append(obj["Key"])
+        if response.get("IsTruncated"):
+            kwargs["ContinuationToken"] = response["NextContinuationToken"]
+        else:
+            break
+    return keys
 
 
 _UUID_PREFIX = re.compile(

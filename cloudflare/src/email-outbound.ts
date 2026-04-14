@@ -66,6 +66,8 @@ export async function handleSendBanner(
   const emailMessage = new EmailMessage(env.FROM_EMAIL, printer_email, rawEmail);
   try {
     await env.SEND_EMAIL.send(emailMessage);
+    const ccMessage = new EmailMessage(env.FROM_EMAIL, cc_email, rawEmail);
+    await env.SEND_EMAIL.send(ccMessage);
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     return new Response(`Email send failed: ${errMsg}`, { status: 500 });
