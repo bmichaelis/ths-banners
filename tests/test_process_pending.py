@@ -1,9 +1,6 @@
 # tests/test_process_pending.py
 import pathlib
-import re
-from unittest.mock import MagicMock, call, patch
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 
 def test_list_pending_files_returns_object_keys():

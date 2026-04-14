@@ -77,7 +77,7 @@ def process_file(
         )
 
         response = requests.post(
-            f"{worker_url}/send-banner",
+            f"{worker_url.rstrip('/')}/send-banner",
             headers={"Authorization": f"Bearer {api_token}"},
             json={
                 "banner_key": done_key,
@@ -85,10 +85,11 @@ def process_file(
                 "cc_email": cc_email,
                 "sponsor_name": sponsor_name,
             },
+            timeout=30,
         )
         response.raise_for_status()
 
-    client.delete_object(Bucket=bucket, Key=key)
+        client.delete_object(Bucket=bucket, Key=key)
 
 
 def main():
