@@ -9,7 +9,7 @@ bucket_name = "twolf-banners"
 preview_bucket_name = "twolf-banners-preview"
 
 [[send_email]]
-name = "Timpanogos High School Banners"
+name = "SEND_EMAIL"
 allowed_destination_addresses = ["nikkimichaelis@gmail.com","brett.michaelis@gmail.com"]
 
 # Secrets (set via `wrangler secret put`):
