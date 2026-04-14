@@ -17,8 +17,11 @@ export default {
     _ctx: ExecutionContext
   ): Promise<Response> {
     const url = new URL(request.url);
-    if (request.method === "POST" && url.pathname === "/send-banner") {
-      return handleSendBanner(request, env);
+    if (url.pathname === "/send-banner") {
+      if (request.method === "POST") {
+        return handleSendBanner(request, env);
+      }
+      return new Response("Method Not Allowed", { status: 405, headers: { Allow: "POST" } });
     }
     return new Response("Not Found", { status: 404 });
   },

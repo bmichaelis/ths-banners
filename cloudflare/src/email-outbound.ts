@@ -33,6 +33,10 @@ export async function handleSendBanner(
 
   const { banner_key, printer_email, cc_email, sponsor_name } = body;
 
+  if (!banner_key || !printer_email || !cc_email || !sponsor_name) {
+    return new Response("Missing required fields", { status: 400 });
+  }
+
   const obj = await env.R2.get(banner_key);
   if (!obj) {
     return new Response(`Banner not found: ${banner_key}`, { status: 404 });
@@ -56,8 +60,16 @@ export async function handleSendBanner(
   });
 
   const rawEmail = msg.asRaw();
+  if (!rawEmail) {
+    return new Response("MIME construction failed", { status: 500 });
+  }
   const emailMessage = new EmailMessage(env.FROM_EMAIL, printer_email, rawEmail);
-  await env.SEND_EMAIL.send(emailMessage);
+  try {
+    await env.SEND_EMAIL.send(emailMessage);
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return new Response(`Email send failed: ${errMsg}`, { status: 500 });
+  }
 
   return new Response("OK", { status: 200 });
 }
