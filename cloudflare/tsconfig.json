@@ -6,7 +6,8 @@
     "moduleResolution": "Bundler",
     "types": ["@cloudflare/workers-types"],
     "strict": true,
-    "noEmit": true
+    "noEmit": true,
+    "isolatedModules": true
   },
   "include": ["src/**/*.ts", "test/**/*.ts"]
 }
