@@ -1,15 +1,6 @@
 import { createMimeMessage } from "mimetext/browser";
 import type { Env } from "./types";
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
 export async function handleSendBanner(
   request: Request,
   env: Env
@@ -55,7 +46,7 @@ export async function handleSendBanner(
   msg.addAttachment({
     filename: `${sponsor_name}-banner.pdf`,
     contentType: "application/pdf",
-    data: arrayBufferToBase64(pdfBytes),
+    data: Buffer.from(pdfBytes).toString("base64"),
     encoding: "base64",
   });
 
