@@ -57,6 +57,7 @@ def test_process_file_generates_banner_and_calls_worker(tmp_path):
         shutil.copy(str(project_root / "uccu-logo_tag.png"), dest)
 
     client.download_file.side_effect = fake_download
+    client.generate_presigned_url.return_value = "https://r2.example.com/presigned-url"
 
     # Arrange: fake HTTP response
     with patch("pipeline.process_pending.requests") as mock_requests:
@@ -85,6 +86,9 @@ def test_process_file_generates_banner_and_calls_worker(tmp_path):
     assert post_kwargs[1]["json"]["banner_key"] == "done/acme-logo-banner.pdf"
     assert post_kwargs[1]["json"]["sponsor_name"] == "acme-logo"
     assert post_kwargs[1]["headers"]["Authorization"] == "Bearer test-token"
+
+    # Assert: download_url was passed in the Worker payload
+    assert post_kwargs[1]["json"]["download_url"] == "https://r2.example.com/presigned-url"
 
     # Assert: deleted from pending
     client.delete_object.assert_called_once_with(

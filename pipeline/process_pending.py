@@ -82,6 +82,12 @@ def process_file(
             ExtraArgs={"ContentType": "application/pdf"},
         )
 
+        download_url = client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': bucket, 'Key': done_key},
+            ExpiresIn=604800,  # 7 days
+        )
+
         response = requests.post(
             f"{worker_url.rstrip('/')}/send-banner",
             headers={"Authorization": f"Bearer {api_token}"},
@@ -90,6 +96,7 @@ def process_file(
                 "printer_email": printer_email,
                 "cc_email": cc_email,
                 "sponsor_name": sponsor_name,
+                "download_url": download_url,
             },
             timeout=30,
         )

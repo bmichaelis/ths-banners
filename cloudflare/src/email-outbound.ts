@@ -16,6 +16,7 @@ export async function handleSendBanner(
     printer_email: string;
     cc_email: string;
     sponsor_name: string;
+    download_url: string;
   };
   try {
     body = await request.json();
@@ -23,17 +24,11 @@ export async function handleSendBanner(
     return new Response("Invalid JSON", { status: 400 });
   }
 
-  const { banner_key, printer_email, cc_email, sponsor_name } = body;
+  const { banner_key, printer_email, cc_email, sponsor_name, download_url } = body;
 
-  if (!banner_key || !printer_email || !cc_email || !sponsor_name) {
+  if (!banner_key || !printer_email || !cc_email || !sponsor_name || !download_url) {
     return new Response("Missing required fields", { status: 400 });
   }
-
-  const obj = await env.R2.get(banner_key);
-  if (!obj) {
-    return new Response(`Banner not found: ${banner_key}`, { status: 404 });
-  }
-  const pdfBytes = await obj.arrayBuffer();
 
   const msg = createMimeMessage();
   msg.setSender({ addr: env.FROM_EMAIL });
@@ -42,19 +37,14 @@ export async function handleSendBanner(
   msg.setSubject(`Banner Ready: ${sponsor_name}`);
   msg.addMessage({
     contentType: "text/plain",
-    data: `The banner PDF for ${sponsor_name} is attached.`,
-  });
-  msg.addAttachment({
-    filename: `${sponsor_name}-banner.pdf`,
-    contentType: "application/pdf",
-    data: Buffer.from(pdfBytes).toString("base64"),
-    encoding: "base64",
+    data: `The banner PDF for ${sponsor_name} is ready for download.\n\nDownload link (expires in 7 days):\n${download_url}\n`,
   });
 
   const rawEmail = msg.asRaw();
   if (!rawEmail) {
     return new Response("MIME construction failed", { status: 500 });
   }
+
   const emailMessage = new EmailMessage(env.FROM_EMAIL, printer_email, rawEmail);
   try {
     await env.SEND_EMAIL.send(emailMessage);
