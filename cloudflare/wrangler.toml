@@ -9,8 +9,8 @@ bucket_name = "twolf-banners"
 preview_bucket_name = "twolf-banners-preview"
 
 [[send_email]]
-name = "SEND_EMAIL"
-# TODO Task 8: add allowed_destination_addresses = ["..."] once addresses are known
+name = "Timpanogos High School Banners"
+allowed_destination_addresses = ["nikkimichaelis@gmail.com","brett.michaelis@gmail.com"]
 
 # Secrets (set via `wrangler secret put`):
 # FROM_EMAIL, PRINTER_EMAIL, CC_EMAIL, API_TOKEN
