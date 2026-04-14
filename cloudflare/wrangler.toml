@@ -1,0 +1,14 @@
+name = "twolf-banners-worker"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "twolf-banners"
+preview_bucket_name = "twolf-banners-preview"
+
+[[send_email]]
+name = "SEND_EMAIL"
+
+# Secrets (set via `wrangler secret put`):
+# FROM_EMAIL, PRINTER_EMAIL, CC_EMAIL, API_TOKEN
