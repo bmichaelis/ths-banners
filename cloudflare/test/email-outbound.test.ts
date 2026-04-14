@@ -1,4 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
+
+vi.mock("cloudflare:email", () => ({
+  EmailMessage: class EmailMessage {
+    constructor(
+      public from: string,
+      public to: string,
+      public raw: string | ReadableStream
+    ) {}
+  },
+}));
+
 import { handleSendBanner } from "../src/email-outbound";
 import type { Env } from "../src/types";
 
