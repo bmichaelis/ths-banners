@@ -1,24 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
-
-vi.mock("cloudflare:email", () => ({
-  EmailMessage: class EmailMessage {
-    constructor(
-      public from: string,
-      public to: string,
-      public raw: string | ReadableStream
-    ) {}
-  },
-}));
-
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handleSendBanner } from "../src/email-outbound";
 import type { Env } from "../src/types";
 
 function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
     R2: {} as unknown as R2Bucket,
-    SEND_EMAIL: {
-      send: vi.fn().mockResolvedValue(undefined),
-    } as unknown as SendEmail,
+    RESEND_API_KEY: "re_test_key",
     FROM_EMAIL: "twolfbanners@kindacoach.com",
     API_TOKEN: "secret-token",
     PRINTER_EMAIL: "printer@example.com",
@@ -47,12 +34,18 @@ const fullBody = {
 };
 
 describe("handleSendBanner", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: "abc123" }), { status: 200 })
+    ));
+  });
+
   it("returns 401 for missing or wrong token", async () => {
     const env = makeEnv();
     const req = makeRequest({ banner_key: "done/x.pdf" }, "wrong-token");
     const res = await handleSendBanner(req, env);
     expect(res.status).toBe(401);
-    expect(env.SEND_EMAIL.send).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("returns 401 when Authorization header is absent", async () => {
@@ -82,28 +75,34 @@ describe("handleSendBanner", () => {
 
   it("returns 400 when required fields are missing", async () => {
     const env = makeEnv();
-    const req = makeRequest({ banner_key: "done/x.pdf" }); // missing printer_email, cc_email, sponsor_name, download_url
+    const req = makeRequest({ banner_key: "done/x.pdf" });
     const res = await handleSendBanner(req, env);
     expect(res.status).toBe(400);
   });
 
-  it("returns 500 when SEND_EMAIL.send throws", async () => {
-    const env = makeEnv({
-      SEND_EMAIL: {
-        send: vi.fn().mockRejectedValue(new Error("destination not allowed")),
-      } as unknown as SendEmail,
-    });
+  it("returns 500 when Resend API returns an error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ message: "Invalid API key" }), { status: 401 })
+    ));
+    const env = makeEnv();
     const req = makeRequest(fullBody);
     const res = await handleSendBanner(req, env);
     expect(res.status).toBe(500);
-    expect(await res.text()).toContain("destination not allowed");
+    expect(await res.text()).toContain("Invalid API key");
   });
 
-  it("sends email and returns 200 on success", async () => {
+  it("calls Resend API with correct payload and returns 200", async () => {
     const env = makeEnv();
     const req = makeRequest(fullBody);
     const res = await handleSendBanner(req, env);
     expect(res.status).toBe(200);
-    expect(env.SEND_EMAIL.send).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("https://api.resend.com/emails");
+    const sentBody = JSON.parse(init.body);
+    expect(sentBody.to).toEqual(["printer@example.com"]);
+    expect(sentBody.cc).toEqual(["cc@example.com"]);
+    expect(sentBody.subject).toBe("Banner Ready: acme");
+    expect(sentBody.text).toContain("https://r2.example.com/test.pdf");
   });
 });

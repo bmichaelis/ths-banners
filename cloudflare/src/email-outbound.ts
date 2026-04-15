@@ -1,5 +1,3 @@
-import { EmailMessage } from "cloudflare:email";
-import { createMimeMessage } from "mimetext/browser";
 import type { Env } from "./types";
 
 export async function handleSendBanner(
@@ -30,29 +28,24 @@ export async function handleSendBanner(
     return new Response("Missing required fields", { status: 400 });
   }
 
-  const msg = createMimeMessage();
-  msg.setSender({ addr: env.FROM_EMAIL });
-  msg.setRecipient(printer_email);
-  msg.setCc(cc_email);
-  msg.setSubject(`Banner Ready: ${sponsor_name}`);
-  msg.addMessage({
-    contentType: "text/plain",
-    data: `The banner PDF for ${sponsor_name} is ready for download.\n\nDownload link (expires in 7 days):\n${download_url}\n`,
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: env.FROM_EMAIL,
+      to: [printer_email],
+      cc: [cc_email],
+      subject: `Banner Ready: ${sponsor_name}`,
+      text: `The banner PDF for ${sponsor_name} is ready for download.\n\nDownload link (expires in 7 days):\n${download_url}\n`,
+    }),
   });
 
-  const rawEmail = msg.asRaw();
-  if (!rawEmail) {
-    return new Response("MIME construction failed", { status: 500 });
-  }
-
-  const emailMessage = new EmailMessage(env.FROM_EMAIL, printer_email, rawEmail);
-  try {
-    await env.SEND_EMAIL.send(emailMessage);
-    const ccMessage = new EmailMessage(env.FROM_EMAIL, cc_email, rawEmail);
-    await env.SEND_EMAIL.send(ccMessage);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    return new Response(`Email send failed: ${errMsg}`, { status: 500 });
+  if (!res.ok) {
+    const errText = await res.text();
+    return new Response(`Email send failed: ${errText.slice(0, 500)}`, { status: 500 });
   }
 
   return new Response("OK", { status: 200 });
