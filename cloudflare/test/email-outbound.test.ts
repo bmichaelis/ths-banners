@@ -31,6 +31,8 @@ const fullBody = {
   cc_email: "cc@example.com",
   sponsor_name: "acme",
   download_url: "https://r2.example.com/test.pdf",
+  sender_email: "bob@example.com",
+  email_body: "Custom email body with download link: https://r2.example.com/test.pdf",
 };
 
 describe("handleSendBanner", () => {
@@ -91,6 +93,18 @@ describe("handleSendBanner", () => {
     expect(await res.text()).toContain("Invalid API key");
   });
 
+  it("omits sender_email from CC when not provided and falls back to default body", async () => {
+    const env = makeEnv();
+    const { sender_email: _, email_body: __, ...bodyWithoutSender } = fullBody;
+    const req = makeRequest(bodyWithoutSender);
+    const res = await handleSendBanner(req, env);
+    expect(res.status).toBe(200);
+    const [, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    const sentBody = JSON.parse(init.body);
+    expect(sentBody.cc).toEqual(["cc@example.com"]);
+    expect(sentBody.text).toContain("https://r2.example.com/test.pdf");
+  });
+
   it("calls Resend API with correct payload and returns 200", async () => {
     const env = makeEnv();
     const req = makeRequest(fullBody);
@@ -101,8 +115,8 @@ describe("handleSendBanner", () => {
     expect(url).toBe("https://api.resend.com/emails");
     const sentBody = JSON.parse(init.body);
     expect(sentBody.to).toEqual(["printer@example.com"]);
-    expect(sentBody.cc).toEqual(["cc@example.com"]);
+    expect(sentBody.cc).toEqual(["cc@example.com", "bob@example.com"]);
     expect(sentBody.subject).toBe("Banner Ready: acme");
-    expect(sentBody.text).toContain("https://r2.example.com/test.pdf");
+    expect(sentBody.text).toBe("Custom email body with download link: https://r2.example.com/test.pdf");
   });
 });

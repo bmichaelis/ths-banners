@@ -5,4 +5,5 @@ export interface Env {
   API_TOKEN: string;
   PRINTER_EMAIL: string;
   CC_EMAIL: string;
+  GITHUB_DISPATCH_TOKEN?: string;
 }

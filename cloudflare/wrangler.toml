@@ -9,4 +9,4 @@ bucket_name = "twolf-banners"
 preview_bucket_name = "twolf-banners-preview"
 
 # Secrets (set via `wrangler secret put`):
-# FROM_EMAIL, RESEND_API_KEY, API_TOKEN
+# FROM_EMAIL, RESEND_API_KEY, API_TOKEN, GITHUB_DISPATCH_TOKEN

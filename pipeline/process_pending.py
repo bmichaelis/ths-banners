@@ -46,6 +46,12 @@ def derive_sponsor_name(r2_key: str) -> str:
     return pathlib.Path(name_with_ext).stem
 
 
+_DEFAULT_EMAIL_BODY = (
+    "The banner PDF for {{sponsor_name}} is ready for download.\n\n"
+    "Download link (expires in 7 days):\n{{download_url}}\n"
+)
+
+
 def process_file(
     client,
     bucket: str,
@@ -54,9 +60,13 @@ def process_file(
     api_token: str,
     printer_email: str,
     cc_email: str,
+    email_body_template: str = _DEFAULT_EMAIL_BODY,
 ) -> None:
     sponsor_name = derive_sponsor_name(key)
     project_root = pathlib.Path(__file__).parent.parent
+
+    metadata = client.head_object(Bucket=bucket, Key=key).get("Metadata", {})
+    sender_email = metadata.get("senderemail") or None
 
     with tempfile.TemporaryDirectory() as tmpdir:
         ext = pathlib.Path(key).suffix
@@ -88,16 +98,25 @@ def process_file(
             ExpiresIn=604800,  # 7 days
         )
 
+        email_body = email_body_template.replace(
+            "{sponsor_name}", sponsor_name
+        ).replace("{download_url}", download_url)
+
+        payload: dict = {
+            "banner_key": done_key,
+            "printer_email": printer_email,
+            "cc_email": cc_email,
+            "sponsor_name": sponsor_name,
+            "download_url": download_url,
+            "email_body": email_body,
+        }
+        if sender_email:
+            payload["sender_email"] = sender_email
+
         response = requests.post(
             f"{worker_url.rstrip('/')}/send-banner",
             headers={"Authorization": f"Bearer {api_token}"},
-            json={
-                "banner_key": done_key,
-                "printer_email": printer_email,
-                "cc_email": cc_email,
-                "sponsor_name": sponsor_name,
-                "download_url": download_url,
-            },
+            json=payload,
             timeout=30,
         )
         if not response.ok:
@@ -116,6 +135,8 @@ def main():
     printer_email = os.environ["PRINTER_EMAIL"]
     cc_email = os.environ["CC_EMAIL"]
 
+    email_body_template = os.environ.get("EMAIL_BODY_TEMPLATE", _DEFAULT_EMAIL_BODY)
+
     pending = list_pending_files(client, bucket)
     if not pending:
         print("No pending files. Exiting.")
@@ -126,7 +147,7 @@ def main():
         try:
             print(f"Processing {key}...")
             process_file(client, bucket, key, worker_url, api_token,
-                         printer_email, cc_email)
+                         printer_email, cc_email, email_body_template)
             print(f"  Done: {key}")
         except Exception as exc:
             print(f"  ERROR processing {key}: {exc}")

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { handleInboundEmail } from "../src/email-inbound";
 import type { Env } from "../src/types";
 
@@ -54,6 +54,14 @@ const RAW_NO_IMAGE = [
 ].join("\r\n");
 
 describe("handleInboundEmail", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 204 })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("saves PNG attachment to R2 pending/", async () => {
     const mockR2 = { put: vi.fn().mockResolvedValue(undefined) };
     const env = { R2: mockR2 } as unknown as Env;
@@ -61,10 +69,10 @@ describe("handleInboundEmail", () => {
     await handleInboundEmail(makeMessage(RAW_WITH_PNG), env);
 
     expect(mockR2.put).toHaveBeenCalledOnce();
-    const [key, , opts] = mockR2.put.mock.calls[0];
+    const [key, content, opts] = mockR2.put.mock.calls[0];
     expect(key).toMatch(/^pending\/[0-9a-f-]+-acme-logo\.png$/);
     expect(opts.httpMetadata.contentType).toBe("image/png");
-    const [, content] = mockR2.put.mock.calls[0];
+    expect(opts.customMetadata?.senderemail).toBe("sponsor@example.com");
     expect(content).toBeInstanceOf(ArrayBuffer);
     expect((content as ArrayBuffer).byteLength).toBeGreaterThan(0);
   });
@@ -101,6 +109,43 @@ describe("handleInboundEmail", () => {
     await handleInboundEmail(makeMessage(rawWithPdf), env);
 
     expect(mockR2.put).not.toHaveBeenCalled();
+  });
+
+  it("triggers GitHub Actions dispatch when token is set and attachment was saved", async () => {
+    const mockR2 = { put: vi.fn().mockResolvedValue(undefined) };
+    const env = {
+      R2: mockR2,
+      GITHUB_DISPATCH_TOKEN: "ghp_test_token",
+    } as unknown as Env;
+
+    await handleInboundEmail(makeMessage(RAW_WITH_PNG), env);
+
+    expect(fetch).toHaveBeenCalledOnce();
+    const [url, init] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("https://api.github.com/repos/bmichaelis/ths-banners/dispatches");
+    const body = JSON.parse((init as RequestInit).body as string);
+    expect(body.event_type).toBe("banner-pending");
+  });
+
+  it("does not trigger GitHub Actions dispatch when no token is set", async () => {
+    const mockR2 = { put: vi.fn().mockResolvedValue(undefined) };
+    const env = { R2: mockR2 } as unknown as Env;
+
+    await handleInboundEmail(makeMessage(RAW_WITH_PNG), env);
+
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not trigger GitHub Actions dispatch when no attachments were saved", async () => {
+    const mockR2 = { put: vi.fn() };
+    const env = {
+      R2: mockR2,
+      GITHUB_DISPATCH_TOKEN: "ghp_test_token",
+    } as unknown as Env;
+
+    await handleInboundEmail(makeMessage(RAW_NO_IMAGE), env);
+
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("saves only image attachment when mixed with non-image", async () => {

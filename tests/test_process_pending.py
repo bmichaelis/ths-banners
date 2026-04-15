@@ -52,6 +52,8 @@ def test_process_file_generates_banner_and_calls_worker(tmp_path):
     client = MagicMock()
     project_root = pathlib.Path(__file__).parent.parent
 
+    client.head_object.return_value = {"Metadata": {"senderemail": "bob@example.com"}}
+
     def fake_download(bucket, key, dest):
         import shutil
         shutil.copy(str(project_root / "uccu-logo_tag.png"), dest)
@@ -73,6 +75,7 @@ def test_process_file_generates_banner_and_calls_worker(tmp_path):
             api_token="test-token",
             printer_email="printer@example.com",
             cc_email="cc@example.com",
+            email_body_template="Banner for {sponsor_name}: {download_url}",
         )
 
     # Assert: uploaded to done/
@@ -83,15 +86,49 @@ def test_process_file_generates_banner_and_calls_worker(tmp_path):
     # Assert: called worker with correct payload
     mock_requests.post.assert_called_once()
     post_kwargs = mock_requests.post.call_args
-    assert post_kwargs[1]["json"]["banner_key"] == "done/acme-logo-banner.pdf"
-    assert post_kwargs[1]["json"]["sponsor_name"] == "acme-logo"
+    payload = post_kwargs[1]["json"]
+    assert payload["banner_key"] == "done/acme-logo-banner.pdf"
+    assert payload["sponsor_name"] == "acme-logo"
     assert post_kwargs[1]["headers"]["Authorization"] == "Bearer test-token"
-
-    # Assert: download_url was passed in the Worker payload
-    assert post_kwargs[1]["json"]["download_url"] == "https://r2.example.com/presigned-url"
+    assert payload["download_url"] == "https://r2.example.com/presigned-url"
+    assert payload["sender_email"] == "bob@example.com"
+    assert payload["email_body"] == "Banner for acme-logo: https://r2.example.com/presigned-url"
 
     # Assert: deleted from pending
     client.delete_object.assert_called_once_with(
         Bucket="twolf-banners",
         Key="pending/550e8400-e29b-41d4-a716-446655440000-acme-logo.png",
     )
+
+
+def test_process_file_omits_sender_email_when_no_metadata(tmp_path):
+    from pipeline.process_pending import process_file
+
+    client = MagicMock()
+    project_root = pathlib.Path(__file__).parent.parent
+
+    client.head_object.return_value = {"Metadata": {}}
+
+    def fake_download(bucket, key, dest):
+        import shutil
+        shutil.copy(str(project_root / "uccu-logo_tag.png"), dest)
+
+    client.download_file.side_effect = fake_download
+    client.generate_presigned_url.return_value = "https://r2.example.com/presigned-url"
+
+    with patch("pipeline.process_pending.requests") as mock_requests:
+        mock_response = MagicMock()
+        mock_requests.post.return_value = mock_response
+
+        process_file(
+            client=client,
+            bucket="twolf-banners",
+            key="pending/550e8400-e29b-41d4-a716-446655440000-acme-logo.png",
+            worker_url="https://worker.example.com",
+            api_token="test-token",
+            printer_email="printer@example.com",
+            cc_email="cc@example.com",
+        )
+
+    payload = mock_requests.post.call_args[1]["json"]
+    assert "sender_email" not in payload

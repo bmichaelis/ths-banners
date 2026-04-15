@@ -15,6 +15,9 @@ export async function handleInboundEmail(
   const rawData = await new Response(message.raw).arrayBuffer();
   const email = await parser.parse(rawData);
 
+  const senderEmail = email.from?.address ?? "";
+  let savedCount = 0;
+
   for (const attachment of email.attachments) {
     const mimeType = attachment.mimeType?.toLowerCase() ?? "";
     if (!ALLOWED_TYPES.includes(mimeType)) continue;
@@ -28,6 +31,27 @@ export async function handleInboundEmail(
 
     await env.R2.put(key, attachment.content, {
       httpMetadata: { contentType: mimeType },
+      customMetadata: { senderemail: senderEmail },
     });
+    savedCount++;
+  }
+
+  if (savedCount > 0 && env.GITHUB_DISPATCH_TOKEN) {
+    try {
+      await fetch(
+        "https://api.github.com/repos/bmichaelis/ths-banners/dispatches",
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/vnd.github.v3+json",
+            Authorization: `Bearer ${env.GITHUB_DISPATCH_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ event_type: "banner-pending" }),
+        }
+      );
+    } catch {
+      console.error("Failed to trigger GitHub Actions workflow");
+    }
   }
 }
